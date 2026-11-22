@@ -24,7 +24,7 @@ jobs:
       - name: Generate Xcode project
         run: cd ios && xcodegen generate
 
-      - name: Build (ad-hoc signed, iphoneos)
+      - name: Build (unsigned, iphoneos)
         run: |
           cd ios
           xcodebuild \
@@ -33,15 +33,19 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="-" \
-            DEVELOPMENT_TEAM="" \
-            CODE_SIGNING_ALLOWED=YES
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=""
 
-      - name: Package IPA
+      - name: Package IPA (ldid pseudo-sign for TrollStore)
         run: |
+          brew install ldid
           APP_PATH=$(find ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
           echo "Found app: $APP_PATH"
+          ldid -Sios/TodoApp/TodoApp.entitlements "$APP_PATH/TodoApp"
+          ldid -Sios/TodoWidget/TodoWidget.entitlements "$APP_PATH/PlugIns/TodoWidget.app/TodoWidget"
+          codesign -vv "$APP_PATH" 2>/dev/null || true
           rm -rf Payload
           mkdir Payload
           cp -R "$APP_PATH" Payload/
