@@ -14,13 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject config from secrets
-        env:
-          NAS_API_BASE_URL: ${{ secrets.NAS_API_BASE_URL }}
-          NAS_API_KEY: ${{ secrets.NAS_API_KEY }}
-        run: |
-          printf 'import Foundation\n\nenum AppConfig {\n    static let compiledBaseURL = "%s"\n    static let compiledAPIKey = "%s"\n    static let appGroupID = "group.hhxxc.naswidget"\n}\n' "$NAS_API_BASE_URL" "$NAS_API_KEY" > ios/Shared/Config.generated.swift
-          echo "Config.generated.swift written, base URL set: $([ -n "$NAS_API_BASE_URL" ] && echo yes || echo no)"
+      # 公开仓库方案：ipa 不内嵌密钥，Config.generated.swift 用仓库内的空值模板。
+      # 地址与 Key 由用户在 App 设置页填写（App Group UserDefaults，App/Widget 共享）。
+      # 若需编译期注入密钥（App Group 失效时的兜底），临时转私有仓库并恢复注入步骤。
 
       - name: Install xcodegen
         run: brew install xcodegen
