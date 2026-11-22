@@ -138,7 +138,7 @@ struct TodoWidgetView: View {
 struct WidgetBackgroundModifier: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOSApplicationExtension 17.0, *) {
-            content.containerBackground(.fill.tertiarySystemFill, for: .widget)
+            content.containerBackground(.fill.tertiary, for: .widget)
         } else {
             content.padding(12)
         }
