@@ -1,0 +1,9 @@
+data/
+__pycache__/
+*.pyc
+.env
+*.ipa
+DerivedData/
+build/
+ios/NASWidget.xcodeproj/
+Payload/

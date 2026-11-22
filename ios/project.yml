@@ -1,0 +1,69 @@
+name: NASWidget
+options:
+  bundleIdPrefix: com.hhxxc
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    GENERATE_INFOPLIST_FILE: YES
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  TodoApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: TodoApp
+      - path: Shared
+    dependencies:
+      - target: TodoWidget
+        embed: true
+        codeSign: true
+    entitlements:
+      path: TodoApp/TodoApp.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.hhxxc.naswidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hhxxc.naswidget
+        PRODUCT_NAME: TodoApp
+        INFOPLIST_KEY_CFBundleDisplayName: NAS待办
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+
+  TodoWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: TodoWidget
+      - path: Shared
+    entitlements:
+      path: TodoWidget/TodoWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.hhxxc.naswidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hhxxc.naswidget.widget
+        PRODUCT_NAME: TodoWidget
+        INFOPLIST_KEY_CFBundleDisplayName: NAS待办小组件
+        INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        SKIP_INSTALL: YES
+
+schemes:
+  TodoApp:
+    build:
+      targets:
+        TodoApp: all
+        TodoWidget: all
+    run:
+      config: Debug

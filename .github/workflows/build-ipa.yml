@@ -1,0 +1,77 @@
+name: Build IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - ".github/workflows/build-ipa.yml"
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inject config from secrets
+        env:
+          NAS_API_BASE_URL: ${{ secrets.NAS_API_BASE_URL }}
+          NAS_API_KEY: ${{ secrets.NAS_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os
+          content = '''import Foundation
+
+enum AppConfig {
+    static let compiledBaseURL = "%s"
+    static let compiledAPIKey = "%s"
+    static let appGroupID = "group.hhxxc.naswidget"
+}
+''' % (os.environ.get("NAS_API_BASE_URL", ""), os.environ.get("NAS_API_KEY", ""))
+          with open("ios/Shared/Config.generated.swift", "w") as f:
+              f.write(content)
+          print("Config.generated.swift written, base URL set:", bool(os.environ.get("NAS_API_BASE_URL")))
+          PY
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: cd ios && xcodegen generate
+
+      - name: Build (ad-hoc signed, iphoneos)
+        run: |
+          cd ios
+          xcodebuild \
+            -project NASWidget.xcodeproj \
+            -scheme TodoApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            DEVELOPMENT_TEAM="" \
+            CODE_SIGNING_ALLOWED=YES
+
+      - name: Package IPA
+        run: |
+          APP_PATH=$(find ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
+          echo "Found app: $APP_PATH"
+          rm -rf Payload
+          mkdir Payload
+          cp -R "$APP_PATH" Payload/
+          zip -qry NASWidget.ipa Payload
+          ls -la NASWidget.ipa
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NASWidget-ipa
+          path: NASWidget.ipa
+
+      - name: Release on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: NASWidget.ipa

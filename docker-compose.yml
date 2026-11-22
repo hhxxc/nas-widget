@@ -1,0 +1,13 @@
+services:
+  todo-api:
+    build: ./backend
+    image: nas-widget-api:latest
+    container_name: nas-widget-api
+    restart: unless-stopped
+    ports:
+      - "8010:8000"
+    environment:
+      - API_KEY=CHANGE_ME_部署前改成随机长字符串
+    volumes:
+      - ./data:/data
+      - ./web:/app/web:ro

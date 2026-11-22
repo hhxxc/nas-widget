@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAS 待办</title>
+<style>
+  :root { --bd: #e2e2e2; --fg: #1a1a1a; --mut: #8a8a8a; --acc: #2f6fed; --ok: #2f9e63; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 15px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; color: var(--fg); background: #f6f7f9; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 32px 16px 60px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
+  h1 { font-size: 22px; font-weight: 600; }
+  #status { font-size: 12px; color: var(--mut); }
+  #addForm { display: flex; gap: 8px; margin-bottom: 20px; }
+  #newTodo { flex: 1; padding: 10px 14px; border: 1px solid var(--bd); border-radius: 10px; font: inherit; background: #fff; }
+  #addForm button { padding: 10px 18px; border: 0; border-radius: 10px; background: var(--acc); color: #fff; font: inherit; cursor: pointer; }
+  #addForm button:disabled { opacity: .5; cursor: default; }
+  ul { list-style: none; background: #fff; border: 1px solid var(--bd); border-radius: 12px; overflow: hidden; }
+  li { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--bd); }
+  li:last-child { border-bottom: 0; }
+  .chk { width: 22px; height: 22px; border: 1.5px solid #b8b8b8; border-radius: 50%; flex: none; cursor: pointer; position: relative; }
+  .chk.on { background: var(--ok); border-color: var(--ok); }
+  .chk.on::after { content: ""; position: absolute; left: 7px; top: 3px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .txt { flex: 1; word-break: break-all; }
+  li.done .txt { color: var(--mut); text-decoration: line-through; }
+  .del { border: 0; background: none; color: var(--mut); font-size: 13px; cursor: pointer; padding: 4px; }
+  .del:hover { color: #d33; }
+  #empty { text-align: center; color: var(--mut); padding: 24px; background: #fff; border: 1px dashed var(--bd); border-radius: 12px; }
+  .err { color: #d33; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>NAS 待办</h1>
+    <span id="status"></span>
+  </header>
+  <form id="addForm">
+    <input id="newTodo" placeholder="添加待办，回车确认" autocomplete="off" maxlength="200">
+    <button type="submit" id="addBtn">添加</button>
+  </form>
+  <ul id="list"></ul>
+  <p id="empty" hidden>没有待办，全部完成。</p>
+</div>
+<script>
+const KEY_NAME = "nas_widget_api_key";
+let apiKey = localStorage.getItem(KEY_NAME) || "";
+const listEl = document.getElementById("list");
+const emptyEl = document.getElementById("empty");
+const statusEl = document.getElementById("status");
+
+function askKey() {
+  const k = prompt("请输入 API Key（部署时 docker-compose 里设置的 API_KEY）", apiKey || "");
+  if (k !== null) { apiKey = k.trim(); localStorage.setItem(KEY_NAME, apiKey); }
+}
+if (!apiKey) askKey();
+
+function setStatus(s, isErr) {
+  statusEl.textContent = s;
+  statusEl.className = isErr ? "err" : "";
+}
+
+async function api(path, opt = {}) {
+  const resp = await fetch(path, Object.assign({}, opt, {
+    headers: Object.assign({ "X-Api-Key": apiKey, "Content-Type": "application/json" }, opt.headers || {})
+  }));
+  if (resp.status === 401) { askKey(); throw new Error("未授权"); }
+  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  return resp.json();
+}
+
+async function load() {
+  if (!apiKey) return;
+  try {
+    const data = await api("/api/todos");
+    render(data.items);
+    setStatus("已同步 " + new Date().toLocaleTimeString("zh-CN", { hour12: false }));
+  } catch (e) {
+    setStatus("加载失败：" + e.message, true);
+  }
+}
+
+function render(items) {
+  listEl.innerHTML = "";
+  const undone = items.filter(i => !i.done);
+  const done = items.filter(i => i.done);
+  for (const it of undone.concat(done)) {
+    const li = document.createElement("li");
+    if (it.done) li.className = "done";
+    const chk = document.createElement("span");
+    chk.className = "chk" + (it.done ? " on" : "");
+    chk.title = it.done ? "标记为未完成" : "标记为完成";
+    chk.onclick = () => toggle(it);
+    const txt = document.createElement("span");
+    txt.className = "txt";
+    txt.textContent = it.content;
+    const del = document.createElement("button");
+    del.className = "del";
+    del.textContent = "删除";
+    del.onclick = () => remove(it);
+    li.append(chk, txt, del);
+    listEl.appendChild(li);
+  }
+  emptyEl.hidden = items.length > 0;
+  listEl.hidden = items.length === 0;
+}
+
+async function toggle(it) {
+  try { await api("/api/todos/" + it.id, { method: "PATCH", body: JSON.stringify({ done: !it.done }) }); load(); }
+  catch (e) { setStatus("更新失败：" + e.message, true); }
+}
+async function remove(it) {
+  try { await api("/api/todos/" + it.id, { method: "DELETE" }); load(); }
+  catch (e) { setStatus("删除失败：" + e.message, true); }
+}
+
+document.getElementById("addForm").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const input = document.getElementById("newTodo");
+  const content = input.value.trim();
+  if (!content || !apiKey) return;
+  const btn = document.getElementById("addBtn");
+  btn.disabled = true;
+  try { await api("/api/todos", { method: "POST", body: JSON.stringify({ content }) }); input.value = ""; load(); }
+  catch (e) { setStatus("添加失败：" + e.message, true); }
+  btn.disabled = false;
+  input.focus();
+});
+
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>
