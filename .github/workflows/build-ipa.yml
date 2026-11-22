@@ -43,9 +43,15 @@ jobs:
           brew install ldid
           APP_PATH=$(find ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
           echo "Found app: $APP_PATH"
-          ldid -Sios/TodoApp/TodoApp.entitlements "$APP_PATH/TodoApp"
-          ldid -Sios/TodoWidget/TodoWidget.entitlements "$APP_PATH/PlugIns/TodoWidget.app/TodoWidget"
-          codesign -vv "$APP_PATH" 2>/dev/null || true
+          find "$APP_PATH" -maxdepth 2 | sed 's/^/  /'
+          ENT_APP=$(find ios -name "TodoApp.entitlements" -print -quit)
+          ENT_WGT=$(find ios -name "TodoWidget.entitlements" -print -quit)
+          echo "entitlements: app=$ENT_APP widget=$ENT_WGT"
+          BIN_APP=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP_PATH/Info.plist")
+          BIN_WGT=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP_PATH/PlugIns/TodoWidget.app/Info.plist")
+          echo "executables: app=$BIN_APP widget=$BIN_WGT"
+          ldid -S"$ENT_APP" "$APP_PATH/$BIN_APP"
+          ldid -S"$ENT_WGT" "$APP_PATH/PlugIns/TodoWidget.app/$BIN_WGT"
           rm -rf Payload
           mkdir Payload
           cp -R "$APP_PATH" Payload/
