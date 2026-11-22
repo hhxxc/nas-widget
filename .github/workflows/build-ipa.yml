@@ -19,20 +19,8 @@ jobs:
           NAS_API_BASE_URL: ${{ secrets.NAS_API_BASE_URL }}
           NAS_API_KEY: ${{ secrets.NAS_API_KEY }}
         run: |
-          python3 - <<'PY'
-          import os
-          content = '''import Foundation
-
-enum AppConfig {
-    static let compiledBaseURL = "%s"
-    static let compiledAPIKey = "%s"
-    static let appGroupID = "group.hhxxc.naswidget"
-}
-''' % (os.environ.get("NAS_API_BASE_URL", ""), os.environ.get("NAS_API_KEY", ""))
-          with open("ios/Shared/Config.generated.swift", "w") as f:
-              f.write(content)
-          print("Config.generated.swift written, base URL set:", bool(os.environ.get("NAS_API_BASE_URL")))
-          PY
+          printf 'import Foundation\n\nenum AppConfig {\n    static let compiledBaseURL = "%s"\n    static let compiledAPIKey = "%s"\n    static let appGroupID = "group.hhxxc.naswidget"\n}\n' "$NAS_API_BASE_URL" "$NAS_API_KEY" > ios/Shared/Config.generated.swift
+          echo "Config.generated.swift written, base URL set: $([ -n "$NAS_API_BASE_URL" ] && echo yes || echo no)"
 
       - name: Install xcodegen
         run: brew install xcodegen
