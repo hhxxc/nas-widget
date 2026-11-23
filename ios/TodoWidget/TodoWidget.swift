@@ -17,51 +17,34 @@ struct TodoProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TodoEntry) -> Void) {
-        completion(makeEntry(useSampleIfEmpty: !context.isPreview))
+        // 永不联网：快照/时间线必须秒回，否则会被 WidgetKit 看门狗杀掉（白卡）
+        completion(makeEntry())
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TodoEntry>) -> Void) {
-        let entry = makeEntry(useSampleIfEmpty: false)
+        let entry = makeEntry()
+        // 后台异步刷新：拿到新数据且与缓存不同才请求系统重绘，绝不在 timeline 回调里阻塞
+        if !entry.appGroupBroken, entry.configured, !entry.needsLogin, !entry.failed {
+            let cached = entry.items
+            Task {
+                if let fresh = try? await APIClient.fetchTodos(), fresh != cached {
+                    WidgetCenter.shared.reloadTimelines(ofKind: "NASWidget.Todo")
+                }
+            }
+        }
         let next = Calendar.current.date(byAdding: .minute, value: 20, to: Date()) ?? Date().addingTimeInterval(1200)
         completion(Timeline(entries: [entry], policy: .after(next)))
     }
 
-    private func makeEntry(useSampleIfEmpty: Bool) -> TodoEntry {
+    /// 立即返回：全部从 App Group 缓存读取，不做任何阻塞式网络请求
+    private func makeEntry() -> TodoEntry {
         let settings = SettingsStore.shared
-        // 小组件进程读不到 App Group（TrollStore 未保留 entitlements 时会这样）
         let appGroupBroken = UserDefaults(suiteName: AppConfig.appGroupID) == nil
         let configured = settings.isConfigured
         let needsLogin = !settings.isAuthenticated && !settings.hasCredentials
-        if appGroupBroken || !configured || needsLogin {
-            return TodoEntry(date: Date(), items: [], configured: configured,
-                             needsLogin: needsLogin, failed: false, appGroupBroken: appGroupBroken)
-        }
-        let semaphore = DispatchSemaphore(value: 0)
-        var result: [TodoItem] = []
-        var failed = false
-        Task {
-            do {
-                result = try await APIClient.fetchTodos()
-            } catch {
-                failed = true
-            }
-            semaphore.signal()
-        }
-        _ = semaphore.wait(timeout: .now() + 12)
-        if failed || result.isEmpty {
-            let cached = settings.cachedTodos()
-            if !cached.isEmpty {
-                return TodoEntry(date: Date(), items: cached, configured: true,
-                                 needsLogin: false, failed: failed, appGroupBroken: false)
-            }
-        }
-        if useSampleIfEmpty && !failed && result.isEmpty {
-            // 预览快照：无数据时给示例
-            return TodoEntry(date: Date(), items: sampleItems, configured: true,
-                             needsLogin: false, failed: false, appGroupBroken: false)
-        }
-        return TodoEntry(date: Date(), items: result, configured: true,
-                         needsLogin: false, failed: failed, appGroupBroken: false)
+        let items = (appGroupBroken || !configured || needsLogin) ? [] : settings.cachedTodos()
+        return TodoEntry(date: Date(), items: items, configured: configured,
+                         needsLogin: needsLogin, failed: false, appGroupBroken: appGroupBroken)
     }
 
     private var sampleItems: [TodoItem] {
