@@ -204,11 +204,16 @@ struct TodoWidgetView: View {
     }
 
     private func hint(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 13))
-            .foregroundColor(.inkGray)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 14)
+        VStack(spacing: 4) {
+            Text(text)
+                .font(.system(size: 13))
+                .foregroundColor(.inkGray)
+            Text("v" + (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"))
+                .font(.system(size: 10))
+                .foregroundColor(.inkLight)
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 14)
     }
 }
 
