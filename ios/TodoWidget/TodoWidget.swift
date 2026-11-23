@@ -225,3 +225,12 @@ struct TodoWidget: Widget {
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
+
+/// WidgetKit 扩展入口点：没有 @main 时扩展无法被系统加载，
+/// 小组件库里搜不到任何条目（编译不报错，静默失败）。
+@main
+struct NASWidgetBundle: WidgetBundle {
+    var body: some Widget {
+        TodoWidget()
+    }
+}
