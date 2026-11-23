@@ -71,6 +71,7 @@ enum AppUpdater {
     static func install(_ ipaURL: String) -> Bool {
         guard let encoded = ipaURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "apple-magnifier://install?url=" + encoded) else { return false }
-        return UIApplication.shared.open(url)
+        // 用带 completionHandler 的重载（裸 open(_:) 在新 SDK 里是 async，不能在同步函数调用）
+        return UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
 }
