@@ -55,6 +55,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.hhxxc.naswidget.widget
         PRODUCT_NAME: TodoWidget
+        INFOPLIST_FILE: TodoWidget/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: NAS待办小组件
         INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier: com.apple.widgetkit-extension
         SKIP_INSTALL: YES
