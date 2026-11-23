@@ -88,6 +88,8 @@ struct ContentView: View {
         errorText = nil
         do {
             items = try await APIClient.fetchTodos()
+            // 每次成功拉取后刷新小组件：保证登录/配置变更后小组件立即跟上
+            WidgetCenter.shared.reloadAllTimelines()
         } catch {
             if isUnauthorized(error) {
                 SettingsStore.shared.invalidateSession()

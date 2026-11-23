@@ -7,11 +7,13 @@ struct TodoEntry: TimelineEntry {
     let configured: Bool
     let needsLogin: Bool
     let failed: Bool
+    let appGroupBroken: Bool
 }
 
 struct TodoProvider: TimelineProvider {
     func placeholder(in context: Context) -> TodoEntry {
-        TodoEntry(date: Date(), items: sampleItems, configured: true, needsLogin: false, failed: false)
+        TodoEntry(date: Date(), items: sampleItems, configured: true, needsLogin: false,
+                  failed: false, appGroupBroken: false)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TodoEntry) -> Void) {
@@ -26,11 +28,13 @@ struct TodoProvider: TimelineProvider {
 
     private func makeEntry(useSampleIfEmpty: Bool) -> TodoEntry {
         let settings = SettingsStore.shared
+        // 小组件进程读不到 App Group（TrollStore 未保留 entitlements 时会这样）
+        let appGroupBroken = UserDefaults(suiteName: AppConfig.appGroupID) == nil
         let configured = settings.isConfigured
         let needsLogin = !settings.isAuthenticated && !settings.hasCredentials
-        if !configured || needsLogin {
+        if appGroupBroken || !configured || needsLogin {
             return TodoEntry(date: Date(), items: [], configured: configured,
-                             needsLogin: needsLogin, failed: false)
+                             needsLogin: needsLogin, failed: false, appGroupBroken: appGroupBroken)
         }
         let semaphore = DispatchSemaphore(value: 0)
         var result: [TodoItem] = []
@@ -48,16 +52,16 @@ struct TodoProvider: TimelineProvider {
             let cached = settings.cachedTodos()
             if !cached.isEmpty {
                 return TodoEntry(date: Date(), items: cached, configured: true,
-                                 needsLogin: false, failed: failed)
+                                 needsLogin: false, failed: failed, appGroupBroken: false)
             }
         }
         if useSampleIfEmpty && !failed && result.isEmpty {
             // 预览快照：无数据时给示例
             return TodoEntry(date: Date(), items: sampleItems, configured: true,
-                             needsLogin: false, failed: false)
+                             needsLogin: false, failed: false, appGroupBroken: false)
         }
         return TodoEntry(date: Date(), items: result, configured: true,
-                         needsLogin: false, failed: failed)
+                         needsLogin: false, failed: failed, appGroupBroken: false)
     }
 
     private var sampleItems: [TodoItem] {
@@ -92,7 +96,9 @@ struct TodoWidgetView: View {
 
     @ViewBuilder
     private var content: some View {
-        if !entry.configured {
+        if entry.appGroupBroken {
+            hint("小组件读不到共享配置（App Group 未生效），请在 App 设置里重新安装一次本应用")
+        } else if !entry.configured {
             hint("先在 App 里填写 NAS 地址")
         } else if entry.needsLogin {
             hint("打开 App 登录后自动同步待办")
