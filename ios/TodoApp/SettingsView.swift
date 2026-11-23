@@ -8,6 +8,12 @@ struct SettingsView: View {
     @State private var testing = false
     @State private var signedOut = false
 
+    // 更新检查状态
+    @State private var checking = false
+    @State private var updateMsg: String?
+    @State private var updateMsgIsError = false
+    @State private var foundRelease: GitHubRelease?
+
     private let store = SettingsStore.shared
 
     var body: some View {
@@ -45,7 +51,34 @@ struct SettingsView: View {
                     }
                 }
 
-                Section(footer: Text("地址不带末尾斜杠。账号密码保存在本机（App Group），小组件依赖它自动续期；退出登录会清空本机保存的账号。")) {
+                Section(header: Text("版本与更新")) {
+                    HStack {
+                        Text("当前版本")
+                        Spacer()
+                        Text("v" + AppUpdater.currentVersion)
+                            .foregroundColor(.secondary)
+                    }
+                    Button(checking ? "检查中…" : "检查更新") { checkUpdate() }
+                        .disabled(checking)
+                    if let msg = updateMsg {
+                        Text(msg)
+                            .font(.footnote)
+                            .foregroundColor(updateMsgIsError ? .red : .secondary)
+                    }
+                    if let release = foundRelease {
+                        if let body = release.body, !body.isEmpty {
+                            Text(body)
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        }
+                        Button("用 TrollStore 安装 " + release.tagName) {
+                            installUpdate(release)
+                        }
+                        .disabled(checking)
+                    }
+                }
+
+                Section(footer: Text("更新走 GitHub Releases + TrollStore 安装弹窗；检查更新需要手机能访问 api.github.com。")) {
                     EmptyView()
                 }
             }
@@ -80,6 +113,42 @@ struct SettingsView: View {
             await APIClient.logout()
             store.signOut()
             signedOut = true
+        }
+    }
+
+    private func checkUpdate() {
+        checking = true
+        updateMsg = nil
+        foundRelease = nil
+        Task {
+            do {
+                let release = try await AppUpdater.latestRelease()
+                if AppUpdater.isVersion(release.tagName, newerThan: AppUpdater.currentVersion) {
+                    foundRelease = release
+                    updateMsg = "发现新版本 " + release.tagName
+                    updateMsgIsError = false
+                } else {
+                    updateMsg = "已是最新版本"
+                    updateMsgIsError = false
+                }
+            } catch {
+                updateMsg = "检查失败：\(error.localizedDescription)"
+                updateMsgIsError = true
+            }
+            checking = false
+        }
+    }
+
+    private func installUpdate(_ release: GitHubRelease) {
+        guard let ipa = AppUpdater.ipaURL(in: release) else {
+            updateMsg = "Release 里没有 ipa 附件"
+            updateMsgIsError = true
+            return
+        }
+        let ok = AppUpdater.install(ipa)
+        if !ok {
+            updateMsg = "唤起 TrollStore 失败，请手动下载 ipa 安装"
+            updateMsgIsError = true
         }
     }
 }

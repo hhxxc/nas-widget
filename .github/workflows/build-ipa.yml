@@ -3,14 +3,16 @@ name: Build IPA
 on:
   workflow_dispatch:
   push:
-    branches: [main]
-    paths:
-      - "ios/**"
-      - ".github/workflows/build-ipa.yml"
+    branches:
+      - main
+    tags:
+      - "v*"
 
 jobs:
   build:
     runs-on: macos-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -66,3 +68,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: NASWidget.ipa
+          generate_release_notes: true
