@@ -1,5 +1,4 @@
 import Foundation
-import UIKit
 
 /// GitHub Release 上的发布物（字段是 GitHub API 的子集）
 struct GitHubRelease: Codable {
@@ -66,12 +65,18 @@ enum AppUpdater {
         release.assets.first { $0.name.lowercased().hasSuffix(".ipa") }?.browserDownloadUrl
     }
 
-    /// 唤起 TrollStore 安装指定 ipa（结果由 TrollStore 的安装弹窗接管）
-    @MainActor
-    static func install(_ ipaURL: String) {
-        guard let encoded = ipaURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "apple-magnifier://install?url=" + encoded) else { return }
-        // 用带 completionHandler 的重载（裸 open(_:) 在新 SDK 里是 async，不能在同步函数调用）
-        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    /// 下载 ipa 到临时目录，返回本地文件 URL（供分享面板交给 TrollStore）
+    static func downloadIPA(from urlString: String, version: String) async throws -> URL {
+        guard let url = URL(string: urlString) else { throw APIClientError.badStatus(-1) }
+        let (tmp, resp) = try await URLSession.shared.download(from: url)
+        guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIClientError.badStatus((resp as? HTTPURLResponse)?.statusCode ?? -1)
+        }
+        let safeVersion = version.replacingOccurrences(of: "/", with: "_")
+        let dest = FileManager.default.temporaryDirectory
+            .appendingPathComponent("NASWidget-" + safeVersion + ".ipa")
+        try? FileManager.default.removeItem(at: dest)
+        try FileManager.default.moveItem(at: tmp, to: dest)
+        return dest
     }
 }

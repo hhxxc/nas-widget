@@ -1,5 +1,22 @@
 import SwiftUI
+import UIKit
 import WidgetKit
+
+/// 分享面板里承载的文件（ipa），选中后交给 TrollStore 安装
+struct SharedFile: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
+}
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -10,9 +27,11 @@ struct SettingsView: View {
 
     // 更新检查状态
     @State private var checking = false
+    @State private var downloading = false
     @State private var updateMsg: String?
     @State private var updateMsgIsError = false
     @State private var foundRelease: GitHubRelease?
+    @State private var sharedFile: SharedFile?
 
     private let store = SettingsStore.shared
 
@@ -87,10 +106,10 @@ struct SettingsView: View {
                                 .font(.footnote)
                                 .foregroundColor(.secondary)
                         }
-                        Button("用 TrollStore 安装 " + release.tagName) {
-                            installUpdate(release)
+                        Button(downloading ? "下载中…" : "下载并用 TrollStore 安装 " + release.tagName) {
+                            downloadAndShare(release)
                         }
-                        .disabled(checking)
+                        .disabled(checking || downloading)
                     }
                 }
 
@@ -115,7 +134,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Section(footer: Text("更新走 GitHub Releases + TrollStore 安装弹窗；检查更新需要手机能访问 api.github.com。")) {
+                Section(footer: Text("更新流程：下载 ipa → 系统分享面板 → 选 TrollStore 安装（iOS 15 上 apple-magnifier 链接会被系统「放大器」抢走，故不走直链）。检查更新需能访问 api.github.com。")) {
                     EmptyView()
                 }
             }
@@ -128,6 +147,9 @@ struct SettingsView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .sheet(item: $sharedFile) { file in
+            ShareSheet(items: [file.url])
+        }
     }
 
     private func test() {
@@ -176,14 +198,26 @@ struct SettingsView: View {
         }
     }
 
-    private func installUpdate(_ release: GitHubRelease) {
+    private func downloadAndShare(_ release: GitHubRelease) {
         guard let ipa = AppUpdater.ipaURL(in: release) else {
             updateMsg = "Release 里没有 ipa 附件"
             updateMsgIsError = true
             return
         }
-        AppUpdater.install(ipa)
-        updateMsg = "已唤起 TrollStore，请在弹窗里确认安装"
+        downloading = true
+        updateMsg = "正在下载 ipa…"
         updateMsgIsError = false
+        Task {
+            do {
+                let file = try await AppUpdater.downloadIPA(from: ipa, version: release.tagName)
+                sharedFile = SharedFile(url: file)
+                updateMsg = "下载完成，在分享面板里选 TrollStore 安装"
+                updateMsgIsError = false
+            } catch {
+                updateMsg = "下载失败：\(error.localizedDescription)"
+                updateMsgIsError = true
+            }
+            downloading = false
+        }
     }
 }
