@@ -7,7 +7,7 @@ services:
     ports:
       - "8010:8000"
     environment:
-      - API_KEY=CHANGE_ME_部署前改成随机长字符串
+      - MAX_USERS=5
     volumes:
       - ./data:/data
       - ./web:/app/web:ro

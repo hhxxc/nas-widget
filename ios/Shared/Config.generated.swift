@@ -1,9 +1,8 @@
 import Foundation
 
-/// 编译期配置：GitHub Actions 构建时用 Secrets 覆写前两个值。
-/// 本地直接构建时为空，App 内设置页可补填（存 App Group）。
+/// 编译期配置。公开仓库方案：这里没有任何密钥。
+/// 服务器地址、账号密码均由用户在 App 内填写，存 App Group UserDefaults。
 enum AppConfig {
     static let compiledBaseURL = ""
-    static let compiledAPIKey = ""
     static let appGroupID = "group.hhxxc.naswidget"
 }

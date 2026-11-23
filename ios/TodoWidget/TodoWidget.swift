@@ -5,46 +5,59 @@ struct TodoEntry: TimelineEntry {
     let date: Date
     let items: [TodoItem]
     let configured: Bool
+    let needsLogin: Bool
     let failed: Bool
 }
 
 struct TodoProvider: TimelineProvider {
     func placeholder(in context: Context) -> TodoEntry {
-        TodoEntry(date: Date(), items: sampleItems, configured: true, failed: false)
+        TodoEntry(date: Date(), items: sampleItems, configured: true, needsLogin: false, failed: false)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TodoEntry) -> Void) {
-        let (items, failed) = loadSync()
-        completion(TodoEntry(date: Date(), items: items.isEmpty && !failed ? sampleItems : items,
-                             configured: SettingsStore.shared.isConfigured, failed: failed))
+        completion(makeEntry(useSampleIfEmpty: !context.isPreview))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TodoEntry>) -> Void) {
-        let (items, failed) = loadSync()
-        let entry = TodoEntry(date: Date(), items: items,
-                              configured: SettingsStore.shared.isConfigured, failed: failed)
+        let entry = makeEntry(useSampleIfEmpty: false)
         let next = Calendar.current.date(byAdding: .minute, value: 20, to: Date()) ?? Date().addingTimeInterval(1200)
         completion(Timeline(entries: [entry], policy: .after(next)))
     }
 
-    private func loadSync() -> ([TodoItem], Bool) {
-        guard SettingsStore.shared.isConfigured else { return ([], false) }
+    private func makeEntry(useSampleIfEmpty: Bool) -> TodoEntry {
+        let settings = SettingsStore.shared
+        let configured = settings.isConfigured
+        let needsLogin = !settings.isAuthenticated && !settings.hasCredentials
+        if !configured || needsLogin {
+            return TodoEntry(date: Date(), items: [], configured: configured,
+                             needsLogin: needsLogin, failed: false)
+        }
         let semaphore = DispatchSemaphore(value: 0)
         var result: [TodoItem] = []
         var failed = false
         Task {
             do {
-                result = try await APIClient.fetchTodos(
-                    base: SettingsStore.shared.baseURL,
-                    key: SettingsStore.shared.apiKey
-                )
+                result = try await APIClient.fetchTodos()
             } catch {
                 failed = true
             }
             semaphore.signal()
         }
         _ = semaphore.wait(timeout: .now() + 12)
-        return (result, failed)
+        if failed || result.isEmpty {
+            let cached = settings.cachedTodos()
+            if !cached.isEmpty {
+                return TodoEntry(date: Date(), items: cached, configured: true,
+                                 needsLogin: false, failed: failed)
+            }
+        }
+        if useSampleIfEmpty && !failed && result.isEmpty && !needsLogin {
+            // 预览快照：无数据时给示例
+            return TodoEntry(date: Date(), items: sampleItems, configured: true,
+                             needsLogin: false, failed: false)
+        }
+        return TodoEntry(date: Date(), items: result, configured: true,
+                         needsLogin: false, failed: failed)
     }
 
     private var sampleItems: [TodoItem] {
@@ -67,8 +80,10 @@ struct TodoWidgetView: View {
     @ViewBuilder
     private var content: some View {
         if !entry.configured {
-            hint(icon: "gearshape.2", text: "先在 App 里配置 API 地址")
-        } else if entry.failed {
+            hint(icon: "gearshape.2", text: "先在 App 里填 NAS 地址")
+        } else if entry.needsLogin {
+            hint(icon: "person.crop.circle.badge.exclamationmark", text: "在 App 里登录一次，小组件即可自动同步")
+        } else if entry.failed && entry.items.isEmpty {
             hint(icon: "wifi.exclamationmark", text: "连接 NAS 失败，稍后自动重试")
         } else {
             listView

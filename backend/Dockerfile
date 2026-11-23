@@ -1,7 +1,8 @@
 FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+ARG PIP_INDEX_URL=https://pypi.org/simple
+RUN pip install --no-cache-dir -i $PIP_INDEX_URL -r requirements.txt
 COPY app.py .
 ENV DATA_DIR=/data WEB_DIR=/app/web
 EXPOSE 8000

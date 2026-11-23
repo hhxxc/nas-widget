@@ -15,3 +15,8 @@ struct TodoMutationResponse: Codable {
     var item: TodoItem
     var ok: Bool?
 }
+
+struct AuthResponse: Codable {
+    var token: String
+    var username: String
+}

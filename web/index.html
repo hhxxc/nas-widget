@@ -12,6 +12,24 @@
   header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
   h1 { font-size: 22px; font-weight: 600; }
   #status { font-size: 12px; color: var(--mut); }
+  #status.err { color: #d33; }
+  #userbox { font-size: 13px; color: var(--mut); display: flex; align-items: center; gap: 8px; }
+  #logout { border: 0; background: none; color: var(--mut); font-size: 13px; cursor: pointer; padding: 2px 4px; }
+  #logout:hover { color: #d33; }
+  /* ---- 认证卡片 ---- */
+  #auth { max-width: 360px; margin: 48px auto 0; background: #fff; border: 1px solid var(--bd); border-radius: 14px; padding: 28px 24px; }
+  #auth h2 { font-size: 18px; margin-bottom: 4px; }
+  #auth .sub { font-size: 12px; color: var(--mut); margin-bottom: 18px; }
+  #auth label { display: block; font-size: 12px; color: var(--mut); margin: 12px 0 4px; }
+  #auth input { width: 100%; padding: 10px 12px; border: 1px solid var(--bd); border-radius: 10px; font: inherit; }
+  #auth .row { display: flex; gap: 10px; margin-top: 20px; }
+  #auth .row button { flex: 1; padding: 10px; border: 0; border-radius: 10px; font: inherit; cursor: pointer; }
+  #btnLogin { background: var(--acc); color: #fff; }
+  #btnRegister { background: #eef2fd; color: var(--acc); }
+  #auth .msg { min-height: 18px; font-size: 12px; margin-top: 12px; }
+  #auth .msg.err { color: #d33; }
+  #auth .msg.ok { color: var(--ok); }
+  /* ---- 列表 ---- */
   #addForm { display: flex; gap: 8px; margin-bottom: 20px; }
   #newTodo { flex: 1; padding: 10px 14px; border: 1px solid var(--bd); border-radius: 10px; font: inherit; background: #fff; }
   #addForm button { padding: 10px 18px; border: 0; border-radius: 10px; background: var(--acc); color: #fff; font: inherit; cursor: pointer; }
@@ -27,64 +45,150 @@
   .del { border: 0; background: none; color: var(--mut); font-size: 13px; cursor: pointer; padding: 4px; }
   .del:hover { color: #d33; }
   #empty { text-align: center; color: var(--mut); padding: 24px; background: #fff; border: 1px dashed var(--bd); border-radius: 12px; }
-  .err { color: #d33; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>NAS 待办</h1>
-    <span id="status"></span>
-  </header>
-  <form id="addForm">
-    <input id="newTodo" placeholder="添加待办，回车确认" autocomplete="off" maxlength="200">
-    <button type="submit" id="addBtn">添加</button>
-  </form>
-  <ul id="list"></ul>
-  <p id="empty" hidden>没有待办，全部完成。</p>
-</div>
-<script>
-const KEY_NAME = "nas_widget_api_key";
-let apiKey = localStorage.getItem(KEY_NAME) || "";
-const listEl = document.getElementById("list");
-const emptyEl = document.getElementById("empty");
-const statusEl = document.getElementById("status");
 
-function askKey() {
-  const k = prompt("请输入 API Key（部署时 docker-compose 里设置的 API_KEY）", apiKey || "");
-  if (k !== null) { apiKey = k.trim(); localStorage.setItem(KEY_NAME, apiKey); }
-}
-if (!apiKey) askKey();
+  <!-- 登录 / 注册 -->
+  <div id="auth" hidden>
+    <h2>NAS 待办</h2>
+    <div class="sub">首次使用请先注册账号；账号保存在 NAS 上，多端共用。</div>
+    <label for="aUser">用户名</label>
+    <input id="aUser" autocomplete="username" maxlength="24">
+    <label for="aPass">密码（至少 6 位）</label>
+    <input id="aPass" type="password" autocomplete="current-password" maxlength="128">
+    <div class="row">
+      <button id="btnLogin">登录</button>
+      <button id="btnRegister">注册新账号</button>
+    </div>
+    <div class="msg" id="authMsg"></div>
+  </div>
+
+  <!-- 主界面 -->
+  <div id="main" hidden>
+    <header>
+      <h1>NAS 待办</h1>
+      <span id="userbox"><span id="whoami"></span><button id="logout">登出</button></span>
+    </header>
+    <div><span id="status"></span></div>
+    <form id="addForm">
+      <input id="newTodo" placeholder="添加待办，回车确认" autocomplete="off" maxlength="200">
+      <button type="submit" id="addBtn">添加</button>
+    </form>
+    <ul id="list"></ul>
+    <p id="empty" hidden>没有待办，全部完成。</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+const T = {
+  token: localStorage.getItem("nas_token") || "",
+  user: localStorage.getItem("nas_user") || ""
+};
+const CACHE = "nas_todos_cache";
+const $ = id => document.getElementById(id);
+const authEl = $("auth"), mainEl = $("main");
+let items = [];
+
+function showAuth() { authEl.hidden = false; mainEl.hidden = true; }
+function showMain() { authEl.hidden = true; mainEl.hidden = false; $("whoami").textContent = T.user; }
 
 function setStatus(s, isErr) {
-  statusEl.textContent = s;
-  statusEl.className = isErr ? "err" : "";
+  const el = $("status");
+  el.textContent = s;
+  el.className = isErr ? "err" : "";
+}
+
+function renderCache() {
+  try { items = JSON.parse(localStorage.getItem(CACHE) || "[]"); }
+  catch { items = []; }
+  render(items);
 }
 
 async function api(path, opt = {}) {
   const resp = await fetch(path, Object.assign({}, opt, {
-    headers: Object.assign({ "X-Api-Key": apiKey, "Content-Type": "application/json" }, opt.headers || {})
+    headers: Object.assign({
+      "Authorization": "Bearer " + T.token,
+      "Content-Type": "application/json"
+    }, opt.headers || {})
   }));
-  if (resp.status === 401) { askKey(); throw new Error("未授权"); }
-  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  if (resp.status === 401) {
+    // 会话过期：登出并回到登录页（密码不在网页保存，需重新登录）
+    logoutLocal();
+    throw new Error("登录已过期，请重新登录");
+  }
+  if (!resp.ok) {
+    let msg = "HTTP " + resp.status;
+    try { msg = (await resp.json()).detail || msg; } catch {}
+    throw new Error(msg);
+  }
   return resp.json();
 }
 
+async function authAction(kind) {
+  const u = $("aUser").value.trim(), p = $("aPass").value;
+  const msg = $("authMsg");
+  msg.className = "msg"; msg.textContent = "";
+  if (u.length < 2 || p.length < 6) {
+    msg.className = "msg err"; msg.textContent = "用户名至少 2 位，密码至少 6 位";
+    return;
+  }
+  const btn = kind === "login" ? $("btnLogin") : $("btnRegister");
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/auth/" + kind, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await r.json();
+    if (!r.ok) { msg.className = "msg err"; msg.textContent = data.detail || ("HTTP " + r.status); return; }
+    T.token = data.token; T.user = data.username;
+    localStorage.setItem("nas_token", T.token);
+    localStorage.setItem("nas_user", T.user);
+    msg.className = "msg ok"; msg.textContent = "成功，进入中…";
+    showMain();
+    load();
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = "请求失败：" + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+$("btnLogin").addEventListener("click", () => authAction("login"));
+$("btnRegister").addEventListener("click", () => authAction("register"));
+$("aPass").addEventListener("keydown", e => { if (e.key === "Enter") authAction("login"); });
+
+function logoutLocal() {
+  localStorage.removeItem("nas_token");
+  localStorage.removeItem("nas_user");
+  T.token = ""; T.user = "";
+  showAuth();
+}
+$("logout").addEventListener("click", async () => {
+  try { await api("/api/auth/logout", { method: "POST" }); } catch {}
+  logoutLocal();
+});
+
 async function load() {
-  if (!apiKey) return;
+  if (!T.token) return;
   try {
     const data = await api("/api/todos");
-    render(data.items);
+    items = data.items;
+    localStorage.setItem(CACHE, JSON.stringify(items));
+    render(items);
     setStatus("已同步 " + new Date().toLocaleTimeString("zh-CN", { hour12: false }));
   } catch (e) {
-    setStatus("加载失败：" + e.message, true);
+    setStatus("同步失败：" + e.message, true);
   }
 }
 
-function render(items) {
+function render(list) {
+  const listEl = $("list"), emptyEl = $("empty");
   listEl.innerHTML = "";
-  const undone = items.filter(i => !i.done);
-  const done = items.filter(i => i.done);
+  const undone = list.filter(i => !i.done), done = list.filter(i => i.done);
   for (const it of undone.concat(done)) {
     const li = document.createElement("li");
     if (it.done) li.className = "done";
@@ -102,8 +206,8 @@ function render(items) {
     li.append(chk, txt, del);
     listEl.appendChild(li);
   }
-  emptyEl.hidden = items.length > 0;
-  listEl.hidden = items.length === 0;
+  emptyEl.hidden = list.length > 0;
+  listEl.hidden = list.length === 0;
 }
 
 async function toggle(it) {
@@ -115,12 +219,12 @@ async function remove(it) {
   catch (e) { setStatus("删除失败：" + e.message, true); }
 }
 
-document.getElementById("addForm").addEventListener("submit", async ev => {
+$("addForm").addEventListener("submit", async ev => {
   ev.preventDefault();
-  const input = document.getElementById("newTodo");
+  const input = $("newTodo");
   const content = input.value.trim();
-  if (!content || !apiKey) return;
-  const btn = document.getElementById("addBtn");
+  if (!content || !T.token) return;
+  const btn = $("addBtn");
   btn.disabled = true;
   try { await api("/api/todos", { method: "POST", body: JSON.stringify({ content }) }); input.value = ""; load(); }
   catch (e) { setStatus("添加失败：" + e.message, true); }
@@ -128,8 +232,18 @@ document.getElementById("addForm").addEventListener("submit", async ev => {
   input.focus();
 });
 
-load();
-setInterval(load, 60000);
+// 启动：有 token 进主界面（先渲染本地缓存再同步），无 token 进登录页
+if (T.token) {
+  showMain();
+  renderCache();
+  load();
+} else {
+  showAuth();
+}
+setInterval(() => { if (T.token && document.visibilityState === "visible") load(); }, 60000);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && T.token) load();
+});
 </script>
 </body>
 </html>
