@@ -45,12 +45,17 @@ jobs:
           brew install ldid
           APP_PATH=$(find ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
           APP_NAME=$(basename "$APP_PATH" .app)
-          WGT_DIR=$(find "$APP_PATH/PlugIns" -maxdepth 1 -name "*.appex" | head -n 1)
-          WGT_NAME=$(basename "$WGT_DIR" .appex)
-          echo "app: $APP_PATH (bin $APP_NAME) / widget: $WGT_DIR (bin $WGT_NAME)"
-          ls "$APP_PATH/$APP_NAME" "$WGT_DIR/$WGT_NAME"
+          echo "app: $APP_PATH (bin $APP_NAME)"
           ldid -Sios/TodoApp/TodoApp.entitlements "$APP_PATH/$APP_NAME"
-          ldid -Sios/TodoWidget/TodoWidget.entitlements "$WGT_DIR/$WGT_NAME"
+          for APPEX in "$APP_PATH/PlugIns/"*.appex; do
+            EXT=$(basename "$APPEX" .appex)
+            BIN="$APPEX/$EXT"
+            ENT=""
+            if [ "$EXT" = "TodoWidget" ] && [ -f ios/TodoWidget/TodoWidget.entitlements ]; then ENT=ios/TodoWidget/TodoWidget.entitlements; fi
+            if [ "$EXT" = "TodayExt" ] && [ -f ios/TodayExt/TodayExt.entitlements ]; then ENT=ios/TodayExt/TodayExt.entitlements; fi
+            echo "signing $EXT (ent: ${ENT:-none})"
+            if [ -n "$ENT" ]; then ldid -S"$ENT" "$BIN"; else ldid -S "$BIN"; fi
+          done
           rm -rf Payload
           mkdir Payload
           cp -R "$APP_PATH" Payload/

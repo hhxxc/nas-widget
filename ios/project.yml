@@ -12,7 +12,7 @@ settings:
     CODE_SIGN_IDENTITY: "-"
     DEVELOPMENT_TEAM: ""
     GENERATE_INFOPLIST_FILE: YES
-    MARKETING_VERSION: "1.3.5"
+    MARKETING_VERSION: "1.4.0"
     CURRENT_PROJECT_VERSION: "1"
 
 targets:
@@ -24,6 +24,9 @@ targets:
       - path: Shared
     dependencies:
       - target: TodoWidget
+        embed: true
+        codeSign: true
+      - target: TodayExt
         embed: true
         codeSign: true
     entitlements:
@@ -62,11 +65,31 @@ targets:
         INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier: com.apple.widgetkit-extension
         SKIP_INSTALL: YES
 
+  TodayExt:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: TodayExt
+      - path: Shared
+    entitlements:
+      path: TodayExt/TodayExt.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.hhxxc.naswidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hhxxc.naswidget.today
+        PRODUCT_NAME: TodayExt
+        INFOPLIST_FILE: TodayExt/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: 待办事项（可写）
+        SKIP_INSTALL: YES
+
 schemes:
   TodoApp:
     build:
       targets:
         TodoApp: all
         TodoWidget: all
+        TodayExt: all
     run:
       config: Debug
