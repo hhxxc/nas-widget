@@ -188,18 +188,15 @@ struct AuthView: View {
                 SecureField("密码（至少 6 位）", text: $password)
             }
             Section {
-                Button(busy ? "处理中…" : "登录") { auth(kind: "login") }
+                Button(busy ? "处理中…" : "登录") { auth() }
                     .disabled(busy || !canSubmit)
-                Button(busy ? "" : "注册新账号") { auth(kind: "register") }
-                    .disabled(busy || !canSubmit)
-                    .foregroundColor(.accentColor)
                 if let msg = msg {
                     Text(msg)
                         .font(.footnote)
                         .foregroundColor(msgIsError ? .red : .green)
                 }
             } footer: {
-                Text("没有账号就先「注册新账号」；账号保存在 NAS 上，多端通用。登录后账号密码仅保存在本机用于自动续期。")
+                Text("账号需先在电脑网页端注册（需注册码），这里只支持登录。登录后凭据仅存本机，用于会话自动续期。")
             }
         }
     }
@@ -210,19 +207,14 @@ struct AuthView: View {
             && password.count >= 6
     }
 
-    private func auth(kind: String) {
+    private func auth() {
         let u = username.trimmingCharacters(in: .whitespaces)
         SettingsStore.shared.baseURL = baseURL.trimmingCharacters(in: .whitespaces)
         busy = true
         msg = nil
         Task {
             do {
-                let auth: AuthResponse
-                if kind == "register" {
-                    auth = try await APIClient.register(username: u, password: password)
-                } else {
-                    auth = try await APIClient.login(username: u, password: password)
-                }
+                let auth = try await APIClient.login(username: u, password: password)
                 SettingsStore.shared.saveAccount(username: auth.username, password: password, token: auth.token)
                 onSuccess()
             } catch {

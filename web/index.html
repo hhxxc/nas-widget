@@ -53,7 +53,7 @@
   <!-- 登录 / 注册 -->
   <div id="auth" hidden>
     <h2>待办事项</h2>
-    <div class="sub">首次使用请先注册账号；账号保存在 NAS 上，多端共用。</div>
+    <div class="sub">登录后多端共用此账号；注册仅限电脑端，需输入注册码。</div>
     <label for="aUser">用户名</label>
     <input id="aUser" autocomplete="username" maxlength="24">
     <label for="aPass">密码（至少 6 位）</label>
@@ -135,13 +135,20 @@ async function authAction(kind) {
     msg.className = "msg err"; msg.textContent = "用户名至少 2 位，密码至少 6 位";
     return;
   }
+  let registerCode = "";
+  if (kind === "register") {
+    const c = prompt("请输入注册码（注册仅限电脑端）");
+    if (c === null) return;
+    registerCode = c.trim();
+    if (!registerCode) { msg.className = "msg err"; msg.textContent = "注册需要注册码"; return; }
+  }
   const btn = kind === "login" ? $("btnLogin") : $("btnRegister");
   btn.disabled = true;
   try {
     const r = await fetch("/api/auth/" + kind, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: u, password: p })
+      body: JSON.stringify({ username: u, password: p, registerCode: registerCode })
     });
     const data = await r.json();
     if (!r.ok) { msg.className = "msg err"; msg.textContent = data.detail || ("HTTP " + r.status); return; }

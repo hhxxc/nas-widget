@@ -8,6 +8,7 @@ services:
       - "8010:8000"
     environment:
       - MAX_USERS=5
+      - REGISTER_CODE=CHANGE_ME_REGISTER_CODE
     volumes:
       - ./data:/data
       - ./web:/app/web:ro

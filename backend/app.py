@@ -24,6 +24,8 @@ DB_PATH = DATA_DIR / "todos.db"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_USERS = int(os.environ.get("MAX_USERS", "5"))
+# 注册码：只有知道它的人（电脑网页端）才能注册；未配置则注册完全关闭
+REGISTER_CODE = os.environ.get("REGISTER_CODE", "")
 TOKEN_TTL = 30 * 24 * 3600  # 30 天
 PBKDF2_ITERS = 100_000
 LOGIN_RATE = (5, 600)  # 10 分钟内最多 5 次失败
@@ -141,6 +143,10 @@ class AuthIn(BaseModel):
     password: str = Field(min_length=6, max_length=128)
 
 
+class RegisterIn(AuthIn):
+    registerCode: str = ""
+
+
 class TodoIn(BaseModel):
     content: str = Field(min_length=1, max_length=200)
 
@@ -158,7 +164,9 @@ def health():
 
 
 @app.post("/api/auth/register")
-def register(auth: AuthIn):
+def register(auth: RegisterIn):
+    if not REGISTER_CODE or auth.registerCode != REGISTER_CODE:
+        raise HTTPException(status_code=403, detail="注册未开放：请在电脑网页端凭注册码注册")
     username = auth.username.strip()
     if not re.fullmatch(r"[\w\-.]{2,24}", username):
         raise HTTPException(status_code=400, detail="用户名限 2-24 位，字母/数字/中文/点/横线/下划线")
