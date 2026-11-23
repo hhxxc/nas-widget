@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var errorText: String?
     @State private var showSettings = false
     @State private var needsAuth = !SettingsStore.shared.isAuthenticated
+    @FocusState private var addFocused: Bool
 
     var body: some View {
         NavigationView {
@@ -38,6 +39,13 @@ struct ContentView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .onOpenURL { url in
+            // 小组件点击 → naswidget://add：直接聚焦新建输入框
+            if url.scheme == "naswidget", url.host == "add", !needsAuth {
+                addFocused = true
+                if items.isEmpty { Task { await load() } }
+            }
+        }
     }
 
     private var mainList: some View {
@@ -46,6 +54,7 @@ struct ContentView: View {
                 HStack {
                     TextField("新待办…", text: $newTodo)
                         .textInputAutocapitalization(.never)
+                        .focused($addFocused)
                     Button("添加") { addTodo() }
                         .disabled(newTodo.trimmingCharacters(in: .whitespaces).isEmpty || loading)
                 }

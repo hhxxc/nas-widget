@@ -12,7 +12,7 @@ settings:
     CODE_SIGN_IDENTITY: "-"
     DEVELOPMENT_TEAM: ""
     GENERATE_INFOPLIST_FILE: YES
-    MARKETING_VERSION: "1.3.4"
+    MARKETING_VERSION: "1.3.5"
     CURRENT_PROJECT_VERSION: "1"
 
 targets:
@@ -36,6 +36,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.hhxxc.naswidget
         PRODUCT_NAME: TodoApp
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_FILE: TodoApp/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: 待办事项
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait

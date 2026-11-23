@@ -92,6 +92,8 @@ struct TodoWidgetView: View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .modifier(WidgetBackgroundModifier())
+            // iOS 15 小组件不可交互：点击整卡（含红色加号）→ 打开 App 并聚焦新建输入框
+            .widgetURL(URL(string: "naswidget://add"))
     }
 
     @ViewBuilder
