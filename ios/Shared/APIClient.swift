@@ -1,6 +1,6 @@
 import Foundation
 
-enum APIClientError: LocalizedError {
+enum APIClientError: LocalizedError, Equatable {
     case notConfigured
     case unauthorized
     case badStatus(Int)

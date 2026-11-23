@@ -24,8 +24,8 @@ struct ContentView: View {
             .navigationTitle("NAS 待办")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if !needsAuth {
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !needsAuth {
                         Button("设置") { showSettings = true }
                     }
                 }
