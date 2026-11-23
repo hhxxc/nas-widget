@@ -114,7 +114,7 @@ struct TodoWidgetView: View {
     /// 顶部标题栏：左标题 + 右红色圆形加号（iOS 15 小组件不可交互，点击整卡进 App）
     private var header: some View {
         HStack(spacing: 8) {
-            Text("待办")
+            Text("待办事项")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.inkDark)
             Spacer(minLength: 0)
@@ -226,7 +226,7 @@ struct TodoWidget: Widget {
         StaticConfiguration(kind: "NASWidget.Todo", provider: TodoProvider()) { entry in
             TodoWidgetView(entry: entry)
         }
-        .configurationDisplayName("NAS 待办")
+        .configurationDisplayName("待办事项")
         .description("WPS 风格的待办卡片，显示 NAS 上未完成的事项")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }

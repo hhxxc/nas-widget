@@ -21,7 +21,7 @@ struct ContentView: View {
                     mainList
                 }
             }
-            .navigationTitle("NAS 待办")
+            .navigationTitle("待办事项")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
