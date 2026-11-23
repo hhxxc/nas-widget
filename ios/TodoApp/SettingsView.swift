@@ -145,10 +145,8 @@ struct SettingsView: View {
             updateMsgIsError = true
             return
         }
-        let ok = AppUpdater.install(ipa)
-        if !ok {
-            updateMsg = "唤起 TrollStore 失败，请手动下载 ipa 安装"
-            updateMsgIsError = true
-        }
+        AppUpdater.install(ipa)
+        updateMsg = "已唤起 TrollStore，请在弹窗里确认安装"
+        updateMsgIsError = false
     }
 }

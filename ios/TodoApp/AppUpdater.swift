@@ -66,12 +66,12 @@ enum AppUpdater {
         release.assets.first { $0.name.lowercased().hasSuffix(".ipa") }?.browserDownloadUrl
     }
 
-    /// 唤起 TrollStore 安装指定 ipa；返回是否成功打开
+    /// 唤起 TrollStore 安装指定 ipa（结果由 TrollStore 的安装弹窗接管）
     @MainActor
-    static func install(_ ipaURL: String) -> Bool {
+    static func install(_ ipaURL: String) {
         guard let encoded = ipaURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "apple-magnifier://install?url=" + encoded) else { return false }
+              let url = URL(string: "apple-magnifier://install?url=" + encoded) else { return }
         // 用带 completionHandler 的重载（裸 open(_:) 在新 SDK 里是 async，不能在同步函数调用）
-        return UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
 }
