@@ -16,6 +16,22 @@ struct SettingsView: View {
 
     private let store = SettingsStore.shared
 
+    private var widgetExtensionURL: URL? {
+        Bundle.main.builtInPlugInsURL?.appendingPathComponent("TodoWidget.appex")
+    }
+
+    private var widgetExtensionExists: Bool {
+        guard let url = widgetExtensionURL else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    private var widgetExtensionVersion: String {
+        guard let url = widgetExtensionURL,
+              let bundle = Bundle(url: url),
+              let v = bundle.infoDictionary?["CFBundleShortVersionString"] as? String else { return "—" }
+        return "v" + v
+    }
+
     var body: some View {
         NavigationView {
             Form {
@@ -75,6 +91,27 @@ struct SettingsView: View {
                             installUpdate(release)
                         }
                         .disabled(checking)
+                    }
+                }
+
+                Section(header: Text("小组件诊断")) {
+                    HStack {
+                        Text("扩展包")
+                        Spacer()
+                        Text(widgetExtensionExists ? "已内嵌" : "缺失")
+                            .foregroundColor(widgetExtensionExists ? .green : .red)
+                    }
+                    HStack {
+                        Text("扩展版本")
+                        Spacer()
+                        Text(widgetExtensionVersion)
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Text("App Group")
+                        Spacer()
+                        Text(UserDefaults(suiteName: "group.hhxxc.naswidget") != nil ? "可用" : "不可用")
+                            .foregroundColor(UserDefaults(suiteName: "group.hhxxc.naswidget") != nil ? .green : .red)
                     }
                 }
 
